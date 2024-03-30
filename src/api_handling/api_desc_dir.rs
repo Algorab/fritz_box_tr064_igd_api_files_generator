@@ -338,7 +338,7 @@ impl OutputFiles {
         .unwrap();
         file.write_all(
             format!(
-                "#[derive(Deserialize, Debug)]\npub struct Envelope<T> {{\n\t#[serde(rename = \
+                "use serde::Deserialize;\n\n#[derive(Deserialize, Debug)]\npub struct Envelope<T> {{\n\t#[serde(rename = \
                 \"Body\")]\n\tpub body: Body<T>,\n}}\n\n#[derive(Deserialize, Debug)]\npub struct \
                 Body<T> {{ {}\n\tpub response: T,\n}}",
                 self.annotation_string.join("")
