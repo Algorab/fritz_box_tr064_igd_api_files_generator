@@ -85,6 +85,11 @@ impl ApiDesc {
         let mut request_file = RequestFile::new();
         response_file.name = rusty_name.clone();
         request_file.name = rusty_name;
+
+        response_file
+            .content
+            .push(String::from("use serde::Deserialize;\n\n"));
+
         for action in &self.action_list.action {
             let mut request_function = RequestFunction::new();
             request_function.name = action.name.clone();

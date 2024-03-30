@@ -199,7 +199,7 @@ impl RequestFunction {
         let service_type_parts: Vec<&str> = self.service_type.split(':').collect();
 
         let function_print = format!(
-            "pub fn generate_{}_request({} id: Option<&str>) -> (String, String, String)\
+            "#[allow(dead_code)]\npub fn generate_{}_request({} id: Option<&str>) -> (String, String, String)\
              {{ \n\tlet id = id.unwrap_or(\"1\");\n",
             self.name_rusty,
             self.parameter_for_function()
@@ -231,7 +231,7 @@ impl RequestFunction {
             self.parameter_for_code()
         );
         format!(
-            "{}{}{}{}\t(uri.to_string(), header, body) \n}}\n",
+            "{}{}{}{}\t(uri.to_string(), header, body) \n}}\n\n",
             function_print, uri_print, header, body_print
         )
     }
