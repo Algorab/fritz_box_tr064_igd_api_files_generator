@@ -105,10 +105,11 @@ impl ApiDesc {
                 "pub struct {}Response{{\n",
                 action.name.replace("-", "").replace("_", "")
             ));
+
             output_files
                 .annotation_string
-                .push(format!("\n\t#[serde(alias = \"{}Response\")]", action.name));
-
+                .push(format!("\t\talias = \"{}Response\"", action.name));
+            
             for argument in &action.argument_list.argument {
                 if argument.direction == "out" {
                     response_file

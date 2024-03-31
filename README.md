@@ -14,8 +14,7 @@ Each method inside the request files corresponds to an API call and can be calle
 The `id` parameter is used to identify the service if there is more than one. By default this is `1` if `None` is supplied.
 
 ### Response files
-The APIs return XML responses which can be deserialized with [serde-xml-rs](https://crates.io/crates/serde-xml-rs) and [serde](https://crates.io/crates/serde) into structs to easily work with.
-`#![recursion_limit = "512"]` is probably required in any application using the generated response files since the `multi_use.rs` file contains a huge amount of `serde` macros to avoid having to create an `envelope` and `body` struct for every file. 
+The APIs return XML responses which can be deserialized with [serde-xml-rs](https://crates.io/crates/serde-xml-rs) and [serde](https://crates.io/crates/serde) into structs to easily work with. 
 
 ## FRITZ!Box and FRITZ!OS Version
 This code has only been tested with the FRITZ!Box 6490 Cable and FRITZ!OS 7.20. Any FRITZ!Box should work as long as the API description format is unchanged.
