@@ -1,6 +1,9 @@
+use std::collections::HashMap;
 use crate::api_handling::api_desc_dir::{
     OutputFiles, ParameterAndType, RequestFile, RequestFunction, ResponseFile, SpecVersion,
 };
+use crate::api_handling::{Field, TemplateAction};
+use crate::api_handling::helper::rustify_string;
 
 ///Struct to deserialize response from "fritz.box/xyzSCPD.xml" into.
 #[derive(Deserialize, Debug, Default)]
@@ -80,61 +83,72 @@ impl ApiDesc {
         control_url: &str,
         service_type: &str,
     ) {
-        let rusty_name = self.rustify_string(&name);
+        let rusty_name = rustify_string(name);
         let mut response_file = ResponseFile::new();
         let mut request_file = RequestFile::new();
         response_file.name = rusty_name.clone();
         request_file.name = rusty_name;
 
-        response_file
-            .content
-            .push(String::from("use serde::Deserialize;\n\n"));
+        let mut actions: Vec<TemplateAction> = Vec::new();
 
         for action in &self.action_list.action {
-            let mut request_function = RequestFunction::new();
-            request_function.name = action.name.clone();
-            request_function.name_rusty = self.rustify_string(action.name.as_str());
-            request_function.action_name = action.name.clone();
-            request_function.control_url = control_url.to_string();
-            request_function.service_type = service_type.to_string();
 
-            response_file
-                .content
-                .push(String::from("#[derive(Deserialize, Debug)]\n"));
-            response_file.content.push(format!(
-                "pub struct {}Response{{\n",
-                action.name.replace("-", "").replace("_", "")
-            ));
+            let mut request_function = RequestFunction::new(
+                action.name.clone(),
+                service_type.to_string(),
+                control_url.to_string()
+            );
+
+            let mut template_action = TemplateAction::default();
+            template_action.name = format!("{}Response", action.name
+                .replace("-", "")
+                .replace("_", "")
+            );
 
             output_files
                 .annotation_string
-                .push(format!("\t\talias = \"{}Response\"", action.name));
+                .push(format!("{}", action.name));
+
+            let mut fields: Vec<Field> = Vec::new();
 
             for argument in &action.argument_list.argument {
+
+                let mut field = Field::default();
+
                 if argument.direction == "out" {
-                    response_file
-                        .content
-                        .push(format!("\t#[serde(rename = \"{}\")]\n", argument.name));
-                    let variable_type =
-                        self.search_state_variable_type(argument.related_state_variable.as_str());
-                    let variable_name: String = self.rustify_string(&argument.name);
-                    response_file
-                        .content
-                        .push(format!("\tpub {}: {},\n", variable_name, variable_type));
+                    field.xml_name = argument.name.clone();
+                    field.name = rustify_string(&argument.name);
+                    field.r#type = self
+                        .search_state_variable_type(argument.related_state_variable.as_str());
+
+                    fields.push(field);
+
                 } else if argument.direction == "in" {
                     let mut param = ParameterAndType::new();
                     param.parameter_name = argument.name.clone();
-                    param.parameter_name_rusty = self.rustify_string(&argument.name);
+                    param.parameter_name_rusty = rustify_string(&argument.name);
                     param.type_name =
                         self.search_state_variable_type(argument.related_state_variable.as_str());
                     request_function.parameter.push(param);
                 }
+
             }
-            response_file.content.push("}\n\n".to_string());
+            template_action.fields = fields;
+            actions.push(template_action);
+
             request_file.request_functions.push(request_function);
         }
-        output_files.request_files.push(request_file);
+
+        // generate the response file content via handlebars
+        let mut template_data:HashMap<&str, Vec<TemplateAction>> = HashMap::new();
+        template_data.insert("actions", actions);
+        let template_actions_content = output_files.handlebars.render("action_response_types", &template_data).unwrap();
+        response_file.content = template_actions_content;
         output_files.response_files.push(response_file);
+
+
+
+        output_files.request_files.push(request_file);
     }
 
     /// Searches for the requested variable and returns the corresponding type.
@@ -161,86 +175,4 @@ impl ApiDesc {
         panic!("variable Type not implemented, please open a ticket")
     }
 
-    /// Modifies the supplied `input` to generate proper snake case.
-    fn rustify_string(&self, input: &str) -> String {
-        input
-            .replace("NewX_AVM-DE_", "newXAvmDe")
-            .replace("NewX_AVM_DE_", "newXAvmDe")
-            .replace("X_AVM-DE_", "XAvmDe")
-            .replace("X_", "x")
-            .replace("_", "")
-            .replace("NATRSIP", "NatRsip")
-            .replace("NAT", "Nat")
-            .replace("RSIP", "Rsip")
-            .replace("FCS", "Fcs")
-            .replace("ATM", "Atm")
-            .replace("DAV", "Dav")
-            .replace("PPP", "Ppp")
-            .replace("WAN", "Wan")
-            .replace("MAC", "Mac")
-            .replace("AIN", "Ain")
-            .replace("DDNS", "Ddns")
-            .replace("DNS", "Dns")
-            .replace("IPTVo", "IptvO")
-            .replace("IPTV", "Iptv")
-            .replace("US", "Us")
-            .replace("VoIP", "Voip")
-            .replace("AVM", "Avm")
-            .replace("URL", "Url")
-            .replace("ATUC", "Atuc")
-            .replace("CHECK", "Check")
-            .replace("DSL", "Dsl")
-            .replace("DS", "Ds")
-            .replace("SNRG", "Snrg_")
-            .replace("SNRMT", "Snrmt_")
-            .replace("SNR", "Snr_")
-            .replace("LATN", "Latn_")
-            .replace("HEC", "Hec")
-            .replace("TAM", "Tam")
-            .replace("OKZ", "Okz")
-            .replace("LKZ", "Lkz")
-            .replace("OKZ", "Okz")
-            .replace("STUN", "Stun")
-            .replace("UPnP", "Upnp")
-            .replace("FTP", "Ftp")
-            .replace("SSL", "Ssl")
-            .replace("SMB", "Smb")
-            .replace("CGI", "Cgi")
-            .replace("NTP", "Ntp")
-            .replace("TR069", "Tr069")
-            .replace("BSSID", "Bssid")
-            .replace("SSID", "Ssid")
-            .replace("SID", "Sid")
-            .replace("UUID", "Uuid")
-            .replace("OUI", "Oui")
-            .replace("ATUR", "Atur")
-            .replace("FEC", "Fec")
-            .replace("CRC", "Crc")
-            .replace("PSK", "Psk")
-            .replace("WEP", "Wep")
-            .replace("WPA", "Wpa")
-            .replace("WLAN", "Wlan")
-            .replace("LAN", "Lan")
-            .replace("AP", "Ap")
-            .replace("WPS", "Wps")
-            .replace("RX", "Rx")
-            .replace("WOL", "Wol")
-            .replace("DHCP", "Dhcp")
-            .replace("ID", "Id")
-            .replace("IP", "Ip")
-            .chars()
-            .enumerate()
-            .map(|x| {
-                if x.1.is_uppercase() {
-                    if x.0 == 0 {
-                        x.1.to_lowercase().to_string()
-                    } else {
-                        format!("_{}", x.1.to_lowercase())
-                    }
-                } else {
-                    x.1.to_string()
-                }
-            })
-            .collect()
-    }
 }

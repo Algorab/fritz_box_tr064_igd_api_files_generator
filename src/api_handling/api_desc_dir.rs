@@ -1,7 +1,10 @@
+use std::collections::HashMap;
 use crate::api_handling::api_desc::ApiDesc;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use handlebars::Handlebars;
+use crate::api_handling::helper::rustify_string;
 
 ///Struct to deserialize the response from "fritz.box/tr64desc.xml" into.
 #[derive(Deserialize, Debug, Default)]
@@ -124,20 +127,20 @@ pub struct SpecVersion {
 #[derive(Debug)]
 pub struct ResponseFile {
     pub name: String,
-    pub content: Vec<String>,
+    pub content: String,
 }
 
 impl ResponseFile {
     pub fn new() -> Self {
         ResponseFile {
             name: "".to_string(),
-            content: vec![],
+            content: "".to_string(),
         }
     }
 }
 
 /// Parameter with it's type, part of `RequestFunction`.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParameterAndType {
     pub parameter_name: String,
     pub parameter_name_rusty: String,
@@ -172,7 +175,7 @@ impl RequestFile {
 
 /// Represents a request function, `name` is taken directly from the API, `name_rusty` is the same name in proper snake case.
 /// `service_type`, `action_name` and `control_type` are directly taken from the API.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RequestFunction {
     pub name: String,
     pub name_rusty: String,
@@ -183,118 +186,35 @@ pub struct RequestFunction {
 }
 
 impl RequestFunction {
-    pub fn new() -> Self {
+    pub fn new(name: String,
+               service_type: String,
+               control_url: String) -> Self {
+
         RequestFunction {
-            name: "".to_string(),
-            name_rusty: "".to_string(),
-            parameter: vec![],
-            service_type: "".to_string(),
-            action_name: "".to_string(),
-            control_url: "".to_string(),
+            name: name.clone(),
+            name_rusty: rustify_string(name.as_str()),
+            parameter: Vec::new(),
+            service_type: service_type.clone(),
+            action_name: name.clone(),
+            control_url,
         }
     }
 
-    /// Returns the String representation of a request function.
-    pub fn create_function(&self) -> String {
-        let service_type_parts: Vec<&str> = self.service_type.split(':').collect();
-
-        let function_print = format!(
-            "#[allow(dead_code)]\npub fn generate_{}_request({} id: Option<&str>) -> (String, String, String)\
-             {{ \n\tlet id = id.unwrap_or(\"1\");\n",
-            self.name_rusty,
-            self.parameter_for_function()
-        );
-
-        let uri_print = format!("\tlet uri = \"{}\";\n", self.control_url);
-
-        let header = format!(
-            "\tlet header = format!(\"{}:{}:{}:{}:{{}}#{}\", id);\n",
-            service_type_parts[0],
-            service_type_parts[1],
-            service_type_parts[2],
-            service_type_parts[3],
-            self.action_name
-        );
-
-        let body_print = format!(
-            "\tlet body = format!(\"<?xml version=\\\"1.0\\\"?><s:Envelope \
-            xmlns:s=\\\"http://schemas.xmlsoap.org/soap/envelope/\\\"s:encodingStyle=\
-            \\\"http://schemas.xmlsoap.org/soap/encoding/\\\"><s:Body><u:{} xmlns:u=\
-            \\\"{}:{}:{}:{}:{{}}\\\">{}</u:{}></s:Body></s:Envelope>\",id {});\n",
-            self.action_name,
-            service_type_parts[0],
-            service_type_parts[1],
-            service_type_parts[2],
-            service_type_parts[3],
-            self.parameter_for_body(),
-            self.action_name,
-            self.parameter_for_code()
-        );
-        format!(
-            "{}{}{}{}\t(uri.to_string(), header, body) \n}}\n\n",
-            function_print, uri_print, header, body_print
-        )
-    }
-
-    /// Helper function for `create_function`. Creates a String containing the parameter for the request function signature.
-    pub fn parameter_for_function(&self) -> String {
-        if self.parameter.is_empty() {
-            return "".to_string();
-        }
-        let mut result = String::new();
-        for parameter in &self.parameter {
-            if parameter.type_name == "String" {
-                result.push_str(format!("{}: &str,", parameter.parameter_name_rusty).as_str());
-            } else {
-                result.push_str(
-                    format!(
-                        "{}: &{},",
-                        parameter.parameter_name_rusty, parameter.type_name
-                    )
-                    .as_str(),
-                );
-            }
-        }
-        result
-    }
-
-    /// Helper function for `create_function`. Creates a String containing the parameter for the soap request body.
-    pub fn parameter_for_body(&self) -> String {
-        let mut result = String::new();
-        for parameter in &self.parameter {
-            result.push_str(
-                format!(
-                    "<{}>{{}}</{}>",
-                    parameter.parameter_name, parameter.parameter_name
-                )
-                .as_str(),
-            );
-        }
-        result
-    }
-
-    /// Helper function for `create_function`. Creates a String containing the parameter for insertion (format!...) part of the function.
-    pub fn parameter_for_code(&self) -> String {
-        let mut result = String::new();
-        for parameter in &self.parameter {
-            result.push_str(format!(",{}", parameter.parameter_name_rusty).as_str());
-        }
-        result
-    }
 }
 
 /// Struct to collect file names, content and the annotation for the Body deserialization struct.
 #[derive(Debug)]
-pub struct OutputFiles {
+pub struct OutputFiles<'a> {
     pub annotation_string: Vec<String>,
     pub response_files: Vec<ResponseFile>,
     pub request_files: Vec<RequestFile>,
     pub response_output_folder: String,
     pub request_output_folder: String,
     pub prefix: String,
+    pub handlebars: &'a Handlebars<'a>
 }
-impl OutputFiles {
-    pub fn new() -> Self {
+impl <'a> OutputFiles<'a> {
+    pub fn new(handlebars: &'a Handlebars) -> Self {
         OutputFiles {
             annotation_string: vec![],
             response_files: vec![],
@@ -302,6 +222,7 @@ impl OutputFiles {
             response_output_folder: "response_output".to_string(),
             request_output_folder: "request_output".to_string(),
             prefix: "".to_string(),
+            handlebars
         }
     }
 
@@ -336,14 +257,14 @@ impl OutputFiles {
             &self.response_output_folder, self.prefix
         ))
         .unwrap();
+
+        let mut annotation_data: HashMap<&str, Vec<String>> = HashMap::new();
+        annotation_data.insert("actions", self.annotation_string.clone());
+
+        let file_content = self.handlebars.render("multi_use", &annotation_data).unwrap();
+
         file.write_all(
-            format!(
-                "use serde::Deserialize;\n\n#[derive(Deserialize, Debug)]\npub struct Envelope<T> {{\n\t#[serde(rename = \
-                \"Body\")]\n\tpub body: Body<T>,\n}}\n\n#[derive(Deserialize, Debug)]\npub struct \
-                Body<T> {{ \n\t#[serde(\n{}\n\t)]\n\tpub response: T,\n}}",
-                self.annotation_string.join(",\n")
-            )
-            .as_bytes(),
+            file_content.as_bytes(),
         )
         .unwrap();
     }
@@ -356,7 +277,7 @@ impl OutputFiles {
                 &self.response_output_folder, self.prefix, response_file.name
             ))
             .unwrap();
-            file.write_all(response_file.content.join("").as_bytes())
+            file.write_all(response_file.content.as_bytes())
                 .unwrap();
         }
     }
@@ -364,22 +285,30 @@ impl OutputFiles {
     /// Writes the mod.rs files into the two folders.
     fn write_mod_files(&self) {
         let mut file = File::create(format!("{}/mod.rs", &self.response_output_folder)).unwrap();
-        let mut file_name_vec = vec![format!("pub mod {}multi_use;\n", self.prefix)];
+
+        let mut file_name_vec = vec![format!("{}multi_use", self.prefix)];
         for response_file in &self.response_files {
-            file_name_vec.push(format!("pub mod {}{};\n", self.prefix, response_file.name));
+            file_name_vec.push(format!("{}{}", self.prefix, response_file.name));
         }
         file_name_vec.sort();
         file_name_vec.dedup();
-        file.write_all(file_name_vec.join("").as_bytes()).unwrap();
+
+        let mut templated_data: HashMap<&str, Vec<String>> = HashMap::new();
+        templated_data.insert("mod_files", file_name_vec.clone());
+        let file_content = self.handlebars.render("mod",&templated_data).unwrap();
+        file.write_all(file_content.as_bytes()).unwrap();
 
         file_name_vec.clear();
         let mut file = File::create(format!("{}/mod.rs", &self.request_output_folder)).unwrap();
+
         for request_file in &self.request_files {
-            file_name_vec.push(format!("pub mod {}{};\n", self.prefix, request_file.name));
+            file_name_vec.push(format!("{}{}", self.prefix, request_file.name));
         }
         file_name_vec.sort();
         file_name_vec.dedup();
-        file.write_all(file_name_vec.join("").as_bytes()).unwrap();
+        templated_data.insert("mod_files", file_name_vec.clone());
+        let file_content = self.handlebars.render("mod", &templated_data).unwrap();
+        file.write_all(file_content.as_bytes()).unwrap();
     }
 
     /// Writes all request files to disk.
@@ -387,13 +316,16 @@ impl OutputFiles {
         for request_file in &self.request_files {
             let mut file = File::create(format!(
                 "{}/{}{}.rs",
-                &self.request_output_folder, self.prefix, request_file.name
+                &self.request_output_folder, self.prefix, &request_file.name
             ))
             .unwrap();
-            for function in &request_file.request_functions {
-                file.write_all(function.create_function().as_bytes())
-                    .unwrap();
-            }
+
+            let mut templated_data: HashMap<&str, Vec<RequestFunction>> = HashMap::new();
+            templated_data.insert("request_functions", request_file.request_functions.to_vec());
+            let file_content = self.handlebars.render("request_function", &templated_data).unwrap();
+
+            file.write_all(file_content.as_bytes()).unwrap();
+
         }
     }
 }
@@ -406,8 +338,9 @@ impl ApiDescDir {
         responses_output_folder: String,
         request_output_folder: String,
         prefix: Option<String>,
+        handlebars: &Handlebars
     ) {
-        let mut output_files = OutputFiles::new();
+        let mut output_files = OutputFiles::new(handlebars);
         let prefix = if prefix.is_some() {
             format!("{}_", prefix.unwrap())
         } else {
