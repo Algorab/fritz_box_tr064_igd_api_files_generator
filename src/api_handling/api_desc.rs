@@ -109,7 +109,7 @@ impl ApiDesc {
             output_files
                 .annotation_string
                 .push(format!("\t\talias = \"{}Response\"", action.name));
-            
+
             for argument in &action.argument_list.argument {
                 if argument.direction == "out" {
                     response_file

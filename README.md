@@ -17,12 +17,12 @@ The `id` parameter is used to identify the service if there is more than one. By
 The APIs return XML responses which can be deserialized with [serde-xml-rs](https://crates.io/crates/serde-xml-rs) and [serde](https://crates.io/crates/serde) into structs to easily work with. 
 
 ## FRITZ!Box and FRITZ!OS Version
-This code has only been tested with the FRITZ!Box 6490 Cable and FRITZ!OS 7.20. Any FRITZ!Box should work as long as the API description format is unchanged.
+This code has only been tested with the FRITZ!Box 7590 Cable and FRITZ!OS 7.57. Any FRITZ!Box should work as long as the API description format is unchanged.
 I can't test with any other hardware, if you run into problems, please open an issue. 
 
 ## Usage
 ### Generation
- 1. `git clone https://github.com/arctic-alpaca/fritz_box_tr064_igd_api_files_generator.git`
+ 1. `git clone https://github.com/Algorab/fritz_box_tr064_igd_api_files_generator
  2. modify `main` constants
  3. `cargo run`
  4. the generated files can be found in folder `output` in the current working directory
