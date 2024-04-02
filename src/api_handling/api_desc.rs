@@ -84,8 +84,8 @@ impl ApiDesc {
         service_type: &str,
     ) {
         let rusty_name = rustify_string(name);
-        let mut response_file = ResponseFile::new();
-        let mut request_file = RequestFile::new();
+        let mut response_file = ResponseFile::default();
+        let mut request_file = RequestFile::default();
         response_file.name = rusty_name.clone();
         request_file.name = rusty_name;
 
@@ -124,7 +124,7 @@ impl ApiDesc {
                     fields.push(field);
 
                 } else if argument.direction == "in" {
-                    let mut param = ParameterAndType::new();
+                    let mut param = ParameterAndType::default();
                     param.parameter_name = argument.name.clone();
                     param.parameter_name_rusty = rustify_string(&argument.name);
                     param.type_name =
@@ -145,8 +145,6 @@ impl ApiDesc {
         let template_actions_content = output_files.handlebars.render("action_response_types", &template_data).unwrap();
         response_file.content = template_actions_content;
         output_files.response_files.push(response_file);
-
-
 
         output_files.request_files.push(request_file);
     }

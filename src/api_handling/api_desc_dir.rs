@@ -124,53 +124,25 @@ pub struct SpecVersion {
 }
 
 /// Struct to build response files. File parts get pushed into `content` and assembled later.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ResponseFile {
     pub name: String,
     pub content: String,
 }
 
-impl ResponseFile {
-    pub fn new() -> Self {
-        ResponseFile {
-            name: "".to_string(),
-            content: "".to_string(),
-        }
-    }
-}
-
 /// Parameter with it's type, part of `RequestFunction`.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct ParameterAndType {
     pub parameter_name: String,
     pub parameter_name_rusty: String,
     pub type_name: String,
 }
 
-impl ParameterAndType {
-    pub fn new() -> Self {
-        ParameterAndType {
-            parameter_name: "".to_string(),
-            parameter_name_rusty: "".to_string(),
-            type_name: "".to_string(),
-        }
-    }
-}
-
 /// Struct to build response files. `RequestFunction`s get pushed into `request_functions` and assembled later.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RequestFile {
     pub name: String,
     pub request_functions: Vec<RequestFunction>,
-}
-
-impl RequestFile {
-    pub fn new() -> Self {
-        RequestFile {
-            name: "".to_string(),
-            request_functions: vec![],
-        }
-    }
 }
 
 /// Represents a request function, `name` is taken directly from the API, `name_rusty` is the same name in proper snake case.
