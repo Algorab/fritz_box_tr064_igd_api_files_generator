@@ -20,21 +20,24 @@ pub struct Field {
 
 /// Handles all services of a device and all contained devices.
 fn handle_device(device: &Device, address: &str, output_files: &mut OutputFiles) {
-    for service in &device.service_list.service {
-        let resp = reqwest::blocking::get(format!("{}{}", address, service.scpd_url).as_str())
-            .unwrap()
-            .text()
-            .unwrap();
-        let scdp: ApiDesc = serde_xml_rs::from_str(&resp).unwrap();
-        service.service_type.split(':').nth(3).unwrap();
-        scdp.fill_output_files(
-            output_files,
-            service.service_type.split(':').nth(3).unwrap(),
-            &service.control_url,
-            &service.service_type,
-        );
-    }
-    for local_device in &device.device_list.device {
-        handle_device(local_device, address, output_files);
+    let mut devices_to_handle = vec![device];
+
+    while let Some(device) = devices_to_handle.pop() {
+        for service in &device.service_list.service {
+            let resp = reqwest::blocking::get(format!("{}{}", address, service.scpd_url).as_str())
+                .unwrap()
+                .text()
+                .unwrap();
+            let scdp: ApiDesc = serde_xml_rs::from_str(&resp).unwrap();
+            service.service_type.split(':').nth(3).unwrap();
+            scdp.fill_output_files(
+                output_files,
+                service.service_type.split(':').nth(3).unwrap(),
+                &service.control_url,
+                &service.service_type,
+            );
+        }
+
+        devices_to_handle.extend(device.device_list.device.iter());
     }
 }
