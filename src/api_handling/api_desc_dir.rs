@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use crate::api_handling::api_desc::ApiDesc;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
 use handlebars::Handlebars;
+use crate::api_handling::handle_device;
 use crate::api_handling::helper::rustify_string;
 
 ///Struct to deserialize the response from "fritz.box/tr64desc.xml" into.
@@ -210,13 +210,13 @@ impl <'a> OutputFiles<'a> {
     fn create_output_folders(&self) {
         if let Err(e) = fs::create_dir_all(&self.response_output_folder) {
             if e.kind() != std::io::ErrorKind::AlreadyExists {
-                println!("{}", e.to_string());
+                println!("{}", e);
                 panic!();
             }
         };
         if let Err(e) = fs::create_dir_all(&self.request_output_folder) {
             if e.kind() != std::io::ErrorKind::AlreadyExists {
-                println!("{}", e.to_string());
+                println!("{}", e);
                 panic!();
             }
         };
@@ -323,29 +323,10 @@ impl ApiDescDir {
         output_files.request_output_folder = format!("output/{}{}", prefix, request_output_folder);
         output_files.prefix = prefix;
 
-        self.handle_device(&self.device, address, &mut output_files);
+        handle_device(&self.device, address, &mut output_files);
 
         output_files.create_files();
     }
 
-    /// Handles all services of a device and all contained devices.
-    fn handle_device(&self, device: &Device, address: &str, mut output_files: &mut OutputFiles) {
-        for service in &device.service_list.service {
-            let resp = reqwest::blocking::get(format!("{}{}", address, service.scpd_url).as_str())
-                .unwrap()
-                .text()
-                .unwrap();
-            let scdp: ApiDesc = serde_xml_rs::from_str(&*resp).unwrap();
-            service.service_type.split(':').nth(3).unwrap();
-            scdp.fill_output_files(
-                &mut output_files,
-                service.service_type.split(':').nth(3).unwrap(),
-                &service.control_url,
-                &service.service_type,
-            );
-        }
-        for local_device in &device.device_list.device {
-            self.handle_device(local_device, address, &mut output_files);
-        }
-    }
+
 }

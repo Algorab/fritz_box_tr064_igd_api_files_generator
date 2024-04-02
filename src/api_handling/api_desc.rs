@@ -99,15 +99,15 @@ impl ApiDesc {
                 control_url.to_string()
             );
 
-            let mut template_action = TemplateAction::default();
-            template_action.name = format!("{}Response", action.name
-                .replace("-", "")
-                .replace("_", "")
-            );
+            let mut template_action = TemplateAction {
+                name: format!("{}Response", action.name
+                    .replace(['-', '_'], "")),
+                ..Default::default()
+            };
 
             output_files
                 .annotation_string
-                .push(format!("{}", action.name));
+                .push(action.name.clone());
 
             let mut fields: Vec<Field> = Vec::new();
 
@@ -124,11 +124,12 @@ impl ApiDesc {
                     fields.push(field);
 
                 } else if argument.direction == "in" {
-                    let mut param = ParameterAndType::default();
-                    param.parameter_name = argument.name.clone();
-                    param.parameter_name_rusty = rustify_string(&argument.name);
-                    param.type_name =
-                        self.search_state_variable_type(argument.related_state_variable.as_str());
+                    let param = ParameterAndType {
+                        parameter_name: argument.name.clone(),
+                        parameter_name_rusty: rustify_string(&argument.name),
+                        type_name: self.search_state_variable_type(argument.related_state_variable.as_str())
+                    };
+
                     request_function.parameter.push(param);
                 }
 
